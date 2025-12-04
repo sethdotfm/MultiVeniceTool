@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VENICE Camera Test</title>
+    <title>VENICE Camera Test (Proxied)</title>
     <style>
         * {
             margin: 0;
@@ -120,18 +120,18 @@
 </head>
 <body>
     <div class="container">
-        <h1>VENICE Camera Control Test</h1>
+        <h1>VENICE Camera Control Test (Proxied)</h1>
         
         <div class="config">
             <div><strong>Configuration:</strong></div>
-            <div>Camera IP: <span id="display-ip"></span></div>
+            <div>Proxy URL: <span id="display-proxy"></span></div>
             <div>Target Element ID: <span id="display-element"></span></div>
         </div>
 
         <div class="controls">
             <button class="test-button" onclick="sendCommand()">Send Command</button>
             <button onclick="reloadIframe()">Reload Camera</button>
-            <button onclick="openInNewTab()">Open Camera in New Tab</button>
+            <button onclick="inspectIframe()">Inspect Iframe Content</button>
         </div>
 
         <div class="iframe-container">
@@ -147,19 +147,18 @@
         // ============================================
         // CONFIGURATION - EDIT THESE VALUES
         // ============================================
-        const CAMERA_IP = "172.17.80.103";           // Camera IP address
         const TARGET_ELEMENT_ID = "BUTTON_REC_BUTTON";      // Element ID to click
         // ============================================
 
-        const CAMERA_URL = `http://${CAMERA_IP}`;
+        const PROXY_URL = "/proxy/camera";
 
         // Display config
-        document.getElementById('display-ip').textContent = CAMERA_IP;
+        document.getElementById('display-proxy').textContent = PROXY_URL;
         document.getElementById('display-element').textContent = TARGET_ELEMENT_ID;
 
-        // Load camera iframe
+        // Load camera iframe through proxy
         const iframe = document.getElementById('camera-iframe');
-        iframe.src = CAMERA_URL;
+        iframe.src = PROXY_URL;
 
         function log(message, type = 'log') {
             const status = document.getElementById('status');
@@ -179,7 +178,7 @@
             try {
                 log('Attempting to send command...', 'log');
                 
-                // Try to access the iframe's document
+                // Try to access the iframe's document (should work now with proxy!)
                 const iframeDoc = iframe.contentWindow.document;
                 const targetElement = iframeDoc.getElementById(TARGET_ELEMENT_ID);
                 
@@ -188,11 +187,11 @@
                     log(`✓ Command sent successfully to element: ${TARGET_ELEMENT_ID}`, 'success');
                 } else {
                     log(`✗ Element not found: ${TARGET_ELEMENT_ID}`, 'error');
-                    log('Tip: Use browser DevTools to inspect the camera page and find the correct element ID', 'log');
+                    log('Tip: Click "Inspect Iframe Content" to see available element IDs', 'log');
                 }
             } catch (error) {
                 log(`✗ Error: ${error.message}`, 'error');
-                log('This might be a cross-origin restriction. The camera may need to be accessed via proxy.', 'log');
+                log('The proxy should have fixed cross-origin issues. Check server logs.', 'log');
             }
         }
 
@@ -201,14 +200,27 @@
             iframe.src = iframe.src;
         }
 
-        function openInNewTab() {
-            log('Opening camera in new tab...', 'log');
-            window.open(CAMERA_URL, '_blank');
+        function inspectIframe() {
+            try {
+                const iframeDoc = iframe.contentWindow.document;
+                const elementsWithId = iframeDoc.querySelectorAll('[id]');
+                
+                log('=== Elements with IDs in camera interface ===', 'log');
+                elementsWithId.forEach(el => {
+                    log(`  - ${el.tagName.toLowerCase()}#${el.id}`, 'log');
+                });
+                
+                if (elementsWithId.length === 0) {
+                    log('No elements with IDs found', 'error');
+                }
+            } catch (error) {
+                log(`✗ Cannot inspect iframe: ${error.message}`, 'error');
+            }
         }
 
         // Log when iframe loads
         iframe.onload = function() {
-            log('Camera interface loaded', 'success');
+            log('Camera interface loaded through proxy', 'success');
         };
 
         iframe.onerror = function() {
