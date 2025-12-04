@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>MultiVeniceTool</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    :root {
+      color-scheme: dark light;
+      --bg: #111;
+      --bg-alt: #1c1c1c;
+      --fg: #eee;
+      --accent: #2196f3;
+      --error: #f44336;
+      --success: #4caf50;
+      --border: #333;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--fg);
+      padding: 16px;
+    }
+
+    h1 {
+      font-size: 22px;
+      margin-bottom: 8px;
+      font-weight: 500;
+    }
+
+    .subtitle {
+      font-size: 13px;
+      color: #aaa;
+      margin-bottom: 16px;
+    }
+
+    .top-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    button {
+      border: none;
+      padding: 8px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      background: var(--accent);
+      color: #fff;
+      transition: filter 0.15s;
+      white-space: nowrap;
+    }
+
+    button:hover {
+      filter: brightness(1.1);
+    }
+
+    button:active {
+      filter: brightness(0.9);
+    }
+
+    .camera-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .camera-card {
+      background: var(--bg-alt);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      min-height: 220px;
+    }
+
+    .camera-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 10px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .camera-header-left {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .camera-name {
+      font-weight: 500;
+    }
+
+    .camera-header a {
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 12px;
+    }
+
+    .camera-header a:hover {
+      text-decoration: underline;
+    }
+
+    .camera-frame {
+      flex: 1;
+      min-height: 180px;
+      border-radius: 0 0 8px 8px;
+      overflow: hidden;
+    }
+
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      background: #000;
+    }
+
+    .status {
+      margin-top: 12px;
+      padding: 8px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: #181818;
+      font-family: "SF Mono", "Consolas", monospace;
+      font-size: 11px;
+      max-height: 180px;
+      overflow-y: auto;
+    }
+
+    .log-line {
+      margin-bottom: 2px;
+      color: #bbb;
+    }
+
+    .log-line.ok {
+      color: var(--success);
+    }
+
+    .log-line.err {
+      color: var(--error);
+    }
+
+    .log-line .ts {
+      color: #666;
+      margin-right: 4px;
+    }
+
+    .small {
+      font-size: 11px;
+      color: #888;
+    }
+  </style>
+</head>
+<body>
+  <h1>MultiVeniceTool</h1>
+  <div class="subtitle">Multi-camera monitor + direct CGI control (no DOM hacks).</div>
+
+  <div class="top-bar">
+    <div class="buttons" id="button-bar">
+      <!-- buttons injected -->
+    </div>
+    <div class="small" id="meta"></div>
+  </div>
+
+  <div class="camera-grid" id="camera-grid">
+    <!-- cameras injected -->
+  </div>
+
+  <div class="status" id="status-log">
+    <div class="log-line"><span class="ts">[--:--:--]</span> Ready.</div>
+  </div>
+
+  <script>
+    let CONFIG = null;
+
+    function log(message, cls) {
+      const logEl = document.getElementById("status-log");
+      const line = document.createElement("div");
+      line.className = "log-line " + (cls || "");
+      const ts = new Date().toLocaleTimeString();
+      line.innerHTML = `<span class="ts">[${ts}]</span> ${message}`;
+      logEl.appendChild(line);
+
+      // keep last ~80 lines
+      while (logEl.children.length > 80) {
+        logEl.removeChild(logEl.firstChild);
+      }
+
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function renderUI() {
+      const cams = CONFIG.cameras;
+      const buttons = CONFIG.buttons;
+
+      const meta = document.getElementById("meta");
+      meta.textContent = `${cams.length} camera(s), ${buttons.length} button(s) configured.`;
+
+      const grid = document.getElementById("camera-grid");
+      grid.innerHTML = "";
+      cams.forEach((cam) => {
+        const card = document.createElement("div");
+        card.className = "camera-card";
+        card.innerHTML = `
+          <div class="camera-header">
+            <div class="camera-header-left">
+              <input type="checkbox" class="camera-enable" data-id="${cam.id}" checked />
+              <span class="camera-name">${cam.name}</span>
+            </div>
+            <a href="${cam.gui_url}" target="_blank" rel="noreferrer">Open UI</a>
+          </div>
+          <div class="camera-frame">
+            <iframe src="${cam.gui_url}" loading="lazy"></iframe>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+
+      const bar = document.getElementById("button-bar");
+      bar.innerHTML = "";
+      buttons.forEach((btn) => {
+        const b = document.createElement("button");
+        b.textContent = btn.label;
+        b.dataset.id = btn.id;
+        if (btn.color) {
+          b.style.backgroundColor = btn.color;
+        }
+        b.addEventListener("click", () => runButton(btn.id));
+        bar.appendChild(b);
+      });
+    }
+
+    function getEnabledCameraIds() {
+      return Array.from(document.querySelectorAll(".camera-enable"))
+        .filter((cb) => cb.checked)
+        .map((cb) => cb.dataset.id);
+    }
+
+    async function runButton(buttonId) {
+      const enabled = getEnabledCameraIds();
+      log(`Running "${buttonId}" on ${enabled.length} enabled camera(s)...`);
+
+      try {
+        const resp = await fetch("/api/run_button", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ button_id: buttonId, target_ids: enabled }),
+        });
+        const data = await resp.json();
+
+        if (!resp.ok || !data.ok) {
+          log(`Button "${buttonId}" error: ${data.error || resp.statusText}`, "err");
+        }
+
+        (data.results || []).forEach((r) => {
+          const status = r.ok ? "OK" : "ERR";
+          const code = r.status_code != null ? r.status_code : "-";
+          const cls = r.ok ? "ok" : "err";
+          log(
+            `"${buttonId}" -> ${r.camera_name} [${status} HTTP ${code}${r.error ? " – " + r.error : ""}]`,
+            cls
+          );
+        });
+      } catch (e) {
+        log(`Button "${buttonId}" request failed: ${e}`, "err");
+      }
+    }
+
+    async function loadConfig() {
+      try {
+        const resp = await fetch("/api/config");
+        if (!resp.ok) throw new Error(resp.statusText);
+        CONFIG = await resp.json();
+        renderUI();
+        log("Config loaded.");
+      } catch (e) {
+        log("Failed to load config: " + e, "err");
+      }
+    }
+
+    loadConfig();
+  </script>
+</body>
+</html>
