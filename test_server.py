@@ -13,8 +13,8 @@ app = Flask(__name__)
 # ============================================
 # CONFIGURATION - EDIT THESE VALUES
 # ============================================
-CAMERA_IP = "172.17.80.103"
-PORT = 80
+CAMERA_IP = "https://en.wikipedia.org"
+PORT = 443
 # ============================================
 
 @app.route('/')
@@ -26,9 +26,19 @@ def index():
 def proxy_camera():
     """Proxy the camera's web interface"""
     try:
-        # Fetch the page from the camera
-        camera_url = f"http://{CAMERA_IP}"
-        response = requests.get(camera_url, timeout=10)
+        # Build the camera URL - add http:// if not present
+        if CAMERA_IP.startswith('http://') or CAMERA_IP.startswith('https://'):
+            camera_url = CAMERA_IP
+        else:
+            camera_url = f"http://{CAMERA_IP}"
+        
+        print(f"Fetching: {camera_url}")
+        
+        # Set a proper User-Agent header
+        headers = {
+            'User-Agent': 'MultiVeniceTool/1.0 (Camera Control Proxy)'
+        }
+        response = requests.get(camera_url, timeout=10, headers=headers)
         
         # Get the content
         content = response.content
@@ -55,9 +65,21 @@ def proxy_asset():
     asset_path = request.args.get('path', '')
     
     try:
+        # Build the base camera URL
+        if CAMERA_IP.startswith('http://') or CAMERA_IP.startswith('https://'):
+            base_url = CAMERA_IP
+        else:
+            base_url = f"http://{CAMERA_IP}"
+        
         # Construct the full URL to the asset
-        asset_url = f"http://{CAMERA_IP}/{asset_path}"
-        response = requests.get(asset_url, timeout=10)
+        asset_url = f"{base_url.rstrip('/')}/{asset_path.lstrip('/')}"
+        print(f"Fetching asset: {asset_url}")
+        
+        # Set a proper User-Agent header
+        headers = {
+            'User-Agent': 'MultiVeniceTool/1.0 (Camera Control Proxy)'
+        }
+        response = requests.get(asset_url, timeout=10, headers=headers)
         
         # Return the asset with original content type
         return Response(
