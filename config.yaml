@@ -4,10 +4,10 @@ cameras:
     username: admin
     password: PASSWORD
 
-#  - name: Venice B
-#    ip: 172.17.80.102
-#    username: admin
-#    password: PASSWORD
+  - name: Venice B
+    ip: 172.17.80.102
+    username: admin
+    password: PASSWORD
 
   - name: Venice C
     ip: 172.17.80.103
